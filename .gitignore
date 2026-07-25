@@ -1,0 +1,28 @@
+# Build directories
+build/
+Projects/build/
+
+# IDE
+.vscode/settings.json
+*.swp
+*.swo
+
+# Compiled objects
+*.o
+*.d
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# OS
+.DS_Store
+Thumbs.db
