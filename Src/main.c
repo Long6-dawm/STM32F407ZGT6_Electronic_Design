@@ -98,22 +98,40 @@ int main(void)
   delay_init(168);
   led_init();
   lcd_init();
-  g_point_color = RED;
+
+  /* 白色背景，初始化一次即可 */
+  lcd_clear(WHITE);
+
+  /* 标签（只显示一次） */
+  lcd_show_string(20, 40,  200, 24, 24, "Freq:  ", BLACK);
+  lcd_show_string(20, 90,  200, 24, 24, "Amp:   ", BLACK);
+  lcd_show_string(20, 140, 200, 24, 24, "Phase: ", BLACK);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    lcd_clear(WHITE);
-    delay_ms(500);
-    lcd_clear(BLACK);
-    delay_ms(500);
-    lcd_show_string(10, 40, 240, 32, 32, "STM32", RED);
-    lcd_show_string(10, 80, 240, 24, 24, "TFTLCD TEST", RED);
-    lcd_show_string(10, 110, 240, 16, 16, "ATOM@ALIENTEK", RED);
+    /*
+     * TODO: 在这里获取测量值
+     * float freq = ...;
+     * float amp  = ...;
+     * float phase = ...;
+     */
+
+    /* 用黑色数字显示数值，先清旧值再写新值 */
+    /* 示例：显示频率（整数部分） */
+    /* lcd_show_num(120, 40, (uint32_t)freq, 6, 24, BLACK); */
+
+    /* 示例：显示幅度（保留2位小数） */
+    /* lcd_show_xnum(120, 90, (uint32_t)(amp * 100), 5, 24, 1, BLACK); */
+
+    /* 示例：显示相位（保留2位小数） */
+    /* lcd_show_xnum(120, 140, (uint32_t)(phase * 100), 5, 24, 1, BLACK); */
+
     LED0_TOGGLE();
-    delay_ms(1000);
+    delay_ms(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

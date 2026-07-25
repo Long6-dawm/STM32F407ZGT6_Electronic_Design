@@ -10,7 +10,8 @@
             "servertype": "stlink",
             "device": "STM32F407ZGTx",
             "runToEntryPoint": "main",
-            "showDevDebugOutput": "raw"
+            "showDevDebugOutput": "raw",
+            "preLaunchTask": "CMake Build"
         }
     ]
 }
