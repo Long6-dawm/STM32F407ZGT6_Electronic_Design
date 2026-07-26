@@ -23,7 +23,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define FS            51200.0f
+#define FS            83900.0f  /* 84MHz / 1001 ≈ 83.9kHz */
 #define LOCAL_N       256
 #define MAX_PAGE      2
 #define ADC_BUF_SIZE  1024
@@ -83,12 +83,12 @@ static void MX_ADC_Init(void)
     gpio.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &gpio);
 
-    /* TIM2: 84MHz / 1641 ≈ 51194 Hz */
+    /* TIM2: 84MHz / 1001 ≈ 83.9kHz */
     static TIM_HandleTypeDef htim2;
     htim2.Instance = TIM2;
     htim2.Init.Prescaler = 0;
     htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim2.Init.Period = 1640;
+    htim2.Init.Period = 1000;
     htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     HAL_TIM_Base_Init(&htim2);
     TIM_MasterConfigTypeDef sMaster = {0};
