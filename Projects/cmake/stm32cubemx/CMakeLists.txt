@@ -56,12 +56,10 @@ set(STM32_Drivers_Src
     ${CMAKE_SOURCE_DIR}/../Drivers/SYSTEM/delay/delay.c
     ${CMAKE_SOURCE_DIR}/../Drivers/SYSTEM/sys/sys.c
     ${CMAKE_SOURCE_DIR}/../Drivers/SYSTEM/usart/usart.c
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/fft_n.c
     ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/fft_interp_freq.c
     ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/zero_cross.c
     ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/rms_amplitude.c
     ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/differ_amp.c
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/flat_top_data.c
     ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/czt_zoom_fft.c
     ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/iq_phase.c
     ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/fft_buffer.c

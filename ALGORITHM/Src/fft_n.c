@@ -15,8 +15,8 @@ void InitTableFFT(uint32_t n)
 
 	for (i = 0; i < n/2; i ++ )
 	{
-		sintab[ i ]=  sin( 2 * PI * i / MAX_FFT_N );
-		costab[ i ]=  cos( 2 * PI * i / MAX_FFT_N );
+		sintab[ i ]=  arm_sin_f32( 2 * PI * i / n );
+		costab[ i ]=  arm_cos_f32( 2 * PI * i / n );
 	}
 
 }
