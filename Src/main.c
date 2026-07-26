@@ -32,6 +32,8 @@
 
 #define KEY0_PORT     GPIOE
 #define KEY0_PIN      GPIO_PIN_4
+#define KEY_UP_PORT   GPIOA
+#define KEY_UP_PIN    GPIO_PIN_0
 /* USER CODE END PD */
 
 /* Private variables ---------------------------------------------------------*/
@@ -48,6 +50,10 @@ static uint8_t KEY_Scan(void);
 static void Show_Page1(float zc_freq, float rms_amp);
 static void Show_Page2(float dc_v, float vpp_v, uint16_t raw0, uint16_t raw1, int zc_count);
 static void MX_ADC_Init(void);
+static void KEY_UP_Init(void);
+static uint8_t KEY_UP_Scan(void);
+static void USART2_Init(void);
+static void USART2_Send(const char *str);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -156,6 +162,55 @@ static uint8_t KEY_Scan(void)
     return 0;
 }
 
+static void KEY_UP_Init(void)
+{
+    GPIO_InitTypeDef gpio = {0};
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    gpio.Pin  = KEY_UP_PIN;
+    gpio.Mode = GPIO_MODE_INPUT;
+    gpio.Pull = GPIO_PULLDOWN;
+    HAL_GPIO_Init(KEY_UP_PORT, &gpio);
+}
+
+static uint8_t KEY_UP_Scan(void)
+{
+    static uint32_t last_time = 0;
+    static uint8_t  last_state = 0;
+    uint32_t now = HAL_GetTick();
+    if (now - last_time < 50) return 0;
+    uint8_t cur = (HAL_GPIO_ReadPin(KEY_UP_PORT, KEY_UP_PIN) == GPIO_PIN_SET) ? 1 : 0;
+    last_time = now;
+    if (cur == 1 && last_state == 0) { last_state = 1; return 1; }
+    last_state = cur;
+    return 0;
+}
+
+static void USART2_Init(void)
+{
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_USART2_CLK_ENABLE();
+
+    GPIO_InitTypeDef gpio = {0};
+    gpio.Pin       = GPIO_PIN_2 | GPIO_PIN_3;
+    gpio.Mode      = GPIO_MODE_AF_PP;
+    gpio.Pull      = GPIO_PULLUP;
+    gpio.Speed     = GPIO_SPEED_FREQ_HIGH;
+    gpio.Alternate = GPIO_AF7_USART2;
+    HAL_GPIO_Init(GPIOA, &gpio);
+
+    USART2->BRR = 42000000 / 460800;      /* APB1 42MHz / 460800 ≈ 91 */
+    USART2->CR1 = USART_CR1_UE | USART_CR1_TE;
+}
+
+static void USART2_Send(const char *str)
+{
+    while (*str)
+    {
+        while (!(USART2->SR & USART_SR_TXE));
+        USART2->DR = *str++;
+    }
+}
+
 static void Show_Page1(float zc_freq, float rms_amp)
 {
     lcd_clear(WHITE);
@@ -227,7 +282,9 @@ int main(void)
   led_init();
   lcd_init();
   KEY_Init();
+  KEY_UP_Init();
   MX_ADC_Init();
+  USART2_Init();
 
   uint8_t page = 1;
   lcd_clear(WHITE);
@@ -236,7 +293,15 @@ int main(void)
 
   while (1)
   {
-    /* === 拷贝 ADC 数据到本地 (5μs, DMA 最多覆盖 1 个样本) === */
+    if (KEY_UP_Scan())
+    {
+        USART2_Send("COMMUNICATION TEST\r\n");
+        for (int i = 0; i < 5; i++) { LED1_TOGGLE(); delay_ms(200); }
+        LED1(0);
+        delay_ms(500);   /* 防止连发 */
+    }
+
+    /* === 拷贝 ADC 数据到本地 === */
     uint16_t local_buf[LOCAL_N];
     memcpy(local_buf, adc_buf, LOCAL_N * sizeof(uint16_t));
 
