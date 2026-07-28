@@ -4,7 +4,6 @@ enable_language(C ASM)
 set(MX_Defines_Syms
     USE_HAL_DRIVER
     STM32F407xx
-    ARM_MATH_CM4
     __FPU_PRESENT=1
     $<$<CONFIG:Debug>:DEBUG>
 )
@@ -15,9 +14,7 @@ set(MX_Include_Dirs
     ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy
     ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/Device/ST/STM32F4xx/Include
     ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/Include
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Include
     ${CMAKE_SOURCE_DIR}/../Drivers
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Inc
 )
 
 set(MX_Application_Src
@@ -51,41 +48,10 @@ set(STM32_Drivers_Src
     ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.c
     ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.c
     ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc_ex.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c
     ${CMAKE_SOURCE_DIR}/../Drivers/BSP/LCD/lcd.c
     ${CMAKE_SOURCE_DIR}/../Drivers/BSP/LED/led.c
     ${CMAKE_SOURCE_DIR}/../Drivers/SYSTEM/delay/delay.c
     ${CMAKE_SOURCE_DIR}/../Drivers/SYSTEM/sys/sys.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/SYSTEM/usart/usart.c
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/fft_interp_freq.c
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/zero_cross.c
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/rms_amplitude.c
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/differ_amp.c
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/czt_zoom_fft.c
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/iq_phase.c
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/fft_buffer.c
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/mag_phase.c
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/fir_filter.c
-    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/adc_backend_stm32f407.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_cfft_f32.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_cfft_radix2_f32.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_cfft_radix2_init_f32.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_cfft_radix4_f32.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_cfft_radix4_init_f32.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/ComplexMathFunctions/arm_cmplx_mag_f32.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/FastMathFunctions/arm_cos_f32.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/FastMathFunctions/arm_sin_f32.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/FilteringFunctions/arm_fir_f32.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/FilteringFunctions/arm_fir_init_f32.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/CommonTables/arm_common_tables.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/CommonTables/arm_const_structs.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_cfft_init_f32.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_cfft_radix8_f32.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_bitreversal.c
-    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_bitreversal2.c
 )
 
 set(MX_LINK_DIRS)
