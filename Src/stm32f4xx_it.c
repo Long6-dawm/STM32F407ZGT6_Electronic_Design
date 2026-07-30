@@ -117,28 +117,4 @@ void UsageFault_Handler(void)
 
 /* USER CODE BEGIN 1 */
 
-extern volatile uint8_t rx_ready;
-extern char  rx_buf[200];
-extern uint8_t rx_idx;
-extern void parse_frame(char *line);
-
-void USART2_IRQHandler(void)
-{
-    if (USART2->SR & USART_SR_RXNE)
-    {
-        char ch = (char)USART2->DR;
-        if (ch == '\n')
-        {
-            rx_buf[rx_idx] = '\0';
-            parse_frame(rx_buf);
-            rx_idx = 0;
-            rx_ready = 1;
-        }
-        else if (ch != '\r' && rx_idx < 199)
-        {
-            rx_buf[rx_idx++] = ch;
-        }
-    }
-}
-
 /* USER CODE END 1 */
