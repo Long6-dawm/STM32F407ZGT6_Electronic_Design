@@ -61,12 +61,18 @@ set(STM32_Drivers_Src
     ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/ad9226.c
     ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/zero_cross.c
     ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/rms_amplitude.c
+    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/dsp_analyzer.c
     ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/FastMathFunctions/arm_cos_f32.c
     ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/FastMathFunctions/arm_sin_f32.c
+    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_rfft_fast_f32.c
+    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_rfft_fast_init_f32.c
     ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_cfft_f32.c
+    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_cfft_init_f32.c
     ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_cfft_radix8_f32.c
     ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_bitreversal.c
     ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/TransformFunctions/arm_bitreversal2.c
+    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/ComplexMathFunctions/arm_cmplx_mag_f32.c
+    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/StatisticsFunctions/arm_mean_f32.c
     ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/CommonTables/arm_const_structs.c
     ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/CommonTables/arm_common_tables.c
 )

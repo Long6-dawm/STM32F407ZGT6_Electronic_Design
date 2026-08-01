@@ -17,6 +17,7 @@
 #include "ad9226.h"
 #include "rms_amplitude.h"
 #include "zero_cross.h"
+#include "dsp_analyzer.h"
 #include "arm_const_structs.h"
 #include <string.h>
 /* USER CODE END Includes */
@@ -27,7 +28,7 @@
 #define KEY0_PIN      GPIO_PIN_4
 #define KEY_UP_PORT   GPIOA
 #define KEY_UP_PIN    GPIO_PIN_0
-#define FS            500000.0f    /* TIM4 500kHz sample rate */
+#define FS            600000.0f    /* TIM4 600kHz sample rate */
 #define ZC_N          1024
 #define FFT_N         1024
 #define V_CAL         5.925f         /* AD9226 满量程校准系数 */
@@ -44,6 +45,7 @@ volatile uint8_t  active_buf;
 static uint16_t local_buf[AD9226_BUF_SIZE];
 static float h7_rms, h7_fft, h7_freq, h7_freq_fft;
 static uint32_t h7_frame;
+static float sp_freq1, sp_amp1, sp_freq2, sp_amp2, sp_freq3, sp_amp3;
 
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_tx;
@@ -138,6 +140,14 @@ static void debug_send(void)
     dbg_num(local_buf[0]); dbg_char(' ');
     dbg_num(local_buf[1]); dbg_char(' ');
     dbg_num(local_buf[2]);
+    dbg_str(" F1=");
+    dbg_num((uint32_t)sp_freq1); dbg_char('H');
+    dbg_str(" A1=");
+    dbg_num((uint32_t)sp_amp1); dbg_char('m');
+    dbg_str(" F2=");
+    dbg_num((uint32_t)sp_freq2); dbg_char('H');
+    dbg_str(" A2=");
+    dbg_num((uint32_t)sp_amp2); dbg_char('m');
     dbg_str("\r\n");
     dbg_buf[dbg_len] = '\0';
 
@@ -194,6 +204,13 @@ static void Process_Frame(void)
     h7_freq_fft = (float)max_idx * FS / (float)FFT_N;
     /* 单边谱峰值幅度 → 电压 (假设 VREF=3.3V) */
     h7_fft = max_mag * 2.0f / (float)FFT_N * 3.3f / 4096.0f * V_CAL;
+
+    /* === DSP 频谱分析 (RFFT 4096 + Rife 插值 + 谐波) === */
+    static float32_t adc_float[AD9226_BUF_SIZE];
+    for (int i = 0; i < AD9226_BUF_SIZE; i++)
+        adc_float[i] = (float)local_buf[i];
+    DSP_Analyzer_Process(adc_float, &sp_freq1, &sp_amp1, &sp_freq2, &sp_amp2, &sp_freq3, &sp_amp3);
+
     h7_frame++;
 }
 
@@ -238,20 +255,31 @@ static uint8_t KEY_UP_Scan(void)
 static void Show_Page1(void)
 {
     lcd_clear(WHITE);
-    lcd_show_string(10, 10, 220, 16, 16, "P1: AD9226", BLACK);
+    lcd_show_string(10, 10, 220, 16, 16, "P1: Spectrum", BLACK);
     lcd_draw_line(10, 28, 230, 28, BLACK);
-    lcd_show_string(20, 42,  80, 16, 16, "RMS:", BLACK);
-    Show_Float(80, 42, h7_rms, 16, BLACK);
-    lcd_show_string(150, 42, 40, 16, 16, "V", BLACK);
-    lcd_show_string(20, 70,  80, 16, 16, "FFT_amp:", BLACK);
-    Show_Float(90, 70, h7_fft, 16, BLACK);
-    lcd_show_string(160, 70, 40, 16, 16, "V", BLACK);
-    lcd_show_string(20, 98,  80, 16, 16, "Freq:", BLACK);
-    lcd_show_num(80, 98, (uint16_t)h7_freq, 6, 16, BLACK);
-    lcd_show_string(130, 98, 40, 16, 16, "Hz", BLACK);
-    lcd_show_string(20, 126, 80, 16, 16, "FFT:", BLACK);
-    lcd_show_num(80, 126, (uint16_t)h7_freq_fft, 6, 16, BLACK);
-    lcd_show_string(130, 126, 40, 16, 16, "Hz", BLACK);
+
+    lcd_show_string(20, 38,  80, 16, 16, "RMS:", BLACK);
+    Show_Float(80, 38, h7_rms, 16, BLACK);
+    lcd_show_string(150, 38, 40, 16, 16, "V", BLACK);
+
+    lcd_show_string(20, 66,  80, 16, 16, "F1:", BLACK);
+    lcd_show_num(60, 66, (uint16_t)sp_freq1, 6, 16, BLACK);
+    lcd_show_string(110, 66, 40, 16, 16, "Hz", BLACK);
+    Show_Float(140, 66, sp_amp1 / 1000.0f, 16, BLACK);
+    lcd_show_string(200, 66, 30, 16, 16, "V", BLACK);
+
+    lcd_show_string(20, 94,  80, 16, 16, "F2:", BLACK);
+    lcd_show_num(60, 94, (uint16_t)sp_freq2, 6, 16, BLACK);
+    lcd_show_string(110, 94, 40, 16, 16, "Hz", BLACK);
+    Show_Float(140, 94, sp_amp2 / 1000.0f, 16, BLACK);
+    lcd_show_string(200, 94, 30, 16, 16, "V", BLACK);
+
+    lcd_show_string(20, 122, 80, 16, 16, "F3:", BLACK);
+    lcd_show_num(60, 122, (uint16_t)sp_freq3, 6, 16, BLACK);
+    lcd_show_string(110, 122, 40, 16, 16, "Hz", BLACK);
+    Show_Float(140, 122, sp_amp3 / 1000.0f, 16, BLACK);
+    lcd_show_string(200, 122, 30, 16, 16, "V", BLACK);
+
     lcd_show_string(20, 154, 80, 16, 16, "Frm:", BLACK);
     lcd_show_num(80, 154, h7_frame, 7, 16, BLACK);
     lcd_show_string(10, 270, 220, 16, 16, "KEY0 -> P2", BLACK);
@@ -311,6 +339,7 @@ int main(void)
         adc_done = 0;
         Process_Frame();
         debug_send();
+        AD9226_Resume();   /* 突发模式: 处理完重新采样下一帧 */
     }
 
     if (page == 1) Show_Page1();

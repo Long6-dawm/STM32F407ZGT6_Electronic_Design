@@ -11,5 +11,6 @@
 
 void AD9226_Init(void);
 void AD9226_Start(void);
+void AD9226_Resume(void);
 
 #endif

@@ -45,19 +45,19 @@ void AD9226_Init(void)
     htim4.Instance               = TIM4;
     htim4.Init.Prescaler         = 0;
     htim4.Init.CounterMode       = TIM_COUNTERMODE_UP;
-    /* F407 TIM4 clk = 84MHz. Period 167 -> 500kHz sample rate. */
-    htim4.Init.Period            = 167;
+    /* F407 TIM4 clk = 84MHz. Period 139 -> 600kHz sample rate. */
+    htim4.Init.Period            = 139;
     htim4.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
     htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
     HAL_TIM_PWM_Init(&htim4);
 
     TIM_OC_InitTypeDef sConfigOC = {0};
     sConfigOC.OCMode     = TIM_OCMODE_PWM1;
-    sConfigOC.Pulse      = 84;    /* ~50% duty */
+    sConfigOC.Pulse      = 70;    /* ~50% duty */
     sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
     sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
     HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1);
-    __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 84);
+    __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 70);
 
     HAL_NVIC_SetPriority(TIM4_IRQn, 2, 0);
     HAL_NVIC_EnableIRQ(TIM4_IRQn);
@@ -83,5 +83,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         adc_idx    = 0;
         active_buf = (uint8_t)!active_buf;
         adc_done   = 1;
+        /* 突发模式: 填满后关闭更新中断, 主循环处理完再重新开启 */
+        __HAL_TIM_DISABLE_IT(&htim4, TIM_IT_UPDATE);
     }
+}
+
+void AD9226_Resume(void)
+{
+    __HAL_TIM_ENABLE_IT(&htim4, TIM_IT_UPDATE);
 }
