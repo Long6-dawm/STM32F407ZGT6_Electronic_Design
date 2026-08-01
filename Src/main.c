@@ -28,6 +28,7 @@
 #define KEY_UP_PIN    GPIO_PIN_0
 #define FS            200000.0f    /* TIM3 200kHz sample rate */
 #define ZC_N          1024
+#define DBG_BUF_SIZE  128
 /* USER CODE END PD */
 
 /* USER CODE BEGIN PV */
@@ -40,6 +41,11 @@ volatile uint8_t  active_buf;
 static uint16_t local_buf[AD9226_BUF_SIZE];
 static float h7_rms, h7_fft, h7_freq;
 static uint32_t h7_frame;
+
+static UART_HandleTypeDef huart2;
+static DMA_HandleTypeDef hdma_usart2_tx;
+static char dbg_buf[DBG_BUF_SIZE];
+static uint16_t dbg_len;
 /* USER CODE END PV */
 
 void SystemClock_Config(void);
@@ -53,9 +59,78 @@ static void KEY_Init(void);
 static uint8_t KEY_Scan(void);
 static void KEY_UP_Init(void);
 static uint8_t KEY_UP_Scan(void);
+static void USART2_DMA_Init(void);
+static void debug_send(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+
+static void USART2_DMA_Init(void)
+{
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_USART2_CLK_ENABLE();
+    __HAL_RCC_DMA1_CLK_ENABLE();
+
+    GPIO_InitTypeDef gpio = {0};
+    gpio.Pin       = GPIO_PIN_2;    /* PA2 = USART2_TX */
+    gpio.Mode      = GPIO_MODE_AF_PP;
+    gpio.Pull      = GPIO_PULLUP;
+    gpio.Speed     = GPIO_SPEED_FREQ_HIGH;
+    gpio.Alternate = GPIO_AF7_USART2;
+    HAL_GPIO_Init(GPIOA, &gpio);
+
+    /* DMA1 Stream6 Channel4 = USART2_TX */
+    hdma_usart2_tx.Instance                 = DMA1_Stream6;
+    hdma_usart2_tx.Init.Channel             = DMA_CHANNEL_4;
+    hdma_usart2_tx.Init.Direction           = DMA_MEMORY_TO_PERIPH;
+    hdma_usart2_tx.Init.PeriphInc           = DMA_PINC_DISABLE;
+    hdma_usart2_tx.Init.MemInc              = DMA_MINC_ENABLE;
+    hdma_usart2_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    hdma_usart2_tx.Init.MemDataAlignment    = DMA_MDATAALIGN_BYTE;
+    hdma_usart2_tx.Init.Mode                = DMA_NORMAL;
+    hdma_usart2_tx.Init.Priority            = DMA_PRIORITY_HIGH;
+    HAL_DMA_Init(&hdma_usart2_tx);
+    __HAL_LINKDMA(&huart2, hdmatx, hdma_usart2_tx);
+
+    huart2.Instance          = USART2;
+    huart2.Init.BaudRate     = 115200;
+    huart2.Init.WordLength   = UART_WORDLENGTH_8B;
+    huart2.Init.StopBits     = UART_STOPBITS_1;
+    huart2.Init.Parity       = UART_PARITY_NONE;
+    huart2.Init.Mode         = UART_MODE_TX;
+    huart2.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
+    huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+    HAL_UART_Init(&huart2);
+}
+
+static void dbg_char(char c)      { if (dbg_len < DBG_BUF_SIZE - 1) dbg_buf[dbg_len++] = c; }
+static void dbg_str(const char *s){ while (*s && dbg_len < DBG_BUF_SIZE - 1) dbg_buf[dbg_len++] = *s++; }
+
+static void dbg_num(uint32_t v)
+{
+    char t[12]; int i = 0;
+    if (v == 0) { dbg_char('0'); return; }
+    while (v) { t[i++] = '0' + (v % 10); v /= 10; }
+    while (i) dbg_char(t[--i]);
+}
+
+static void debug_send(void)
+{
+    dbg_len = 0;
+    dbg_str("RMS=");
+    dbg_num((uint32_t)(h7_rms * 1000.0f));          /* 单位 mV */
+    dbg_str("mV Freq=");
+    dbg_num((uint32_t)h7_freq);
+    dbg_str("Hz raw=");
+    dbg_num(local_buf[0]); dbg_char(' ');
+    dbg_num(local_buf[1]); dbg_char(' ');
+    dbg_num(local_buf[2]);
+    dbg_str("\r\n");
+    dbg_buf[dbg_len] = '\0';
+
+    while (HAL_UART_GetState(&huart2) != HAL_UART_STATE_READY) {}
+    HAL_UART_Transmit_DMA(&huart2, (uint8_t *)dbg_buf, dbg_len);
+}
 
 static void Show_Float(uint16_t x, uint16_t y, float val, uint8_t size, uint16_t color)
 {
@@ -184,6 +259,7 @@ int main(void)
 
   AD9226_Init();
   AD9226_Start();
+  USART2_DMA_Init();
 
   lcd_clear(WHITE);
   uint8_t page = 1;
@@ -194,6 +270,7 @@ int main(void)
     {
         adc_done = 0;
         Process_Frame();
+        debug_send();
     }
 
     if (page == 1) Show_Page1();
