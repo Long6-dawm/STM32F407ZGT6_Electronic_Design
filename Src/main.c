@@ -17,6 +17,7 @@
 #include "ad9226.h"
 #include "rms_amplitude.h"
 #include "zero_cross.h"
+#include "arm_const_structs.h"
 #include <string.h>
 /* USER CODE END Includes */
 
@@ -26,8 +27,10 @@
 #define KEY0_PIN      GPIO_PIN_4
 #define KEY_UP_PORT   GPIOA
 #define KEY_UP_PIN    GPIO_PIN_0
-#define FS            200000.0f    /* TIM3 200kHz sample rate */
+#define FS            500000.0f    /* TIM4 500kHz sample rate */
 #define ZC_N          1024
+#define FFT_N         1024
+#define V_CAL         5.925f         /* AD9226 满量程校准系数 */
 #define DBG_BUF_SIZE  128
 /* USER CODE END PD */
 
@@ -39,11 +42,11 @@ volatile uint16_t adc_idx;
 volatile uint8_t  active_buf;
 
 static uint16_t local_buf[AD9226_BUF_SIZE];
-static float h7_rms, h7_fft, h7_freq;
+static float h7_rms, h7_fft, h7_freq, h7_freq_fft;
 static uint32_t h7_frame;
 
-static UART_HandleTypeDef huart2;
-static DMA_HandleTypeDef hdma_usart2_tx;
+UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart2_tx;
 static char dbg_buf[DBG_BUF_SIZE];
 static uint16_t dbg_len;
 /* USER CODE END PV */
@@ -101,6 +104,11 @@ static void USART2_DMA_Init(void)
     huart2.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
     huart2.Init.OverSampling = UART_OVERSAMPLING_16;
     HAL_UART_Init(&huart2);
+
+    HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 1, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
+    HAL_NVIC_SetPriority(USART2_IRQn, 1, 0);
+    HAL_NVIC_EnableIRQ(USART2_IRQn);
 }
 
 static void dbg_char(char c)      { if (dbg_len < DBG_BUF_SIZE - 1) dbg_buf[dbg_len++] = c; }
@@ -117,10 +125,15 @@ static void dbg_num(uint32_t v)
 static void debug_send(void)
 {
     dbg_len = 0;
+    dbg_char('['); dbg_num(h7_frame); dbg_str("] ");
     dbg_str("RMS=");
     dbg_num((uint32_t)(h7_rms * 1000.0f));          /* 单位 mV */
+    dbg_str("mV FFT_amp=");
+    dbg_num((uint32_t)(h7_fft * 1000.0f));          /* 单位 mV */
     dbg_str("mV Freq=");
     dbg_num((uint32_t)h7_freq);
+    dbg_str("Hz FFT=");
+    dbg_num((uint32_t)h7_freq_fft);
     dbg_str("Hz raw=");
     dbg_num(local_buf[0]); dbg_char(' ');
     dbg_num(local_buf[1]); dbg_char(' ');
@@ -149,7 +162,7 @@ static void Process_Frame(void)
     uint16_t *src = active_buf ? adc_buf0 : adc_buf1;
     memcpy(local_buf, src, AD9226_BUF_SIZE * sizeof(uint16_t));
 
-    h7_rms  = Measuring_Sine_Amplitude(AD9226_BUF_SIZE, local_buf);
+    h7_rms  = Measuring_Sine_Amplitude(AD9226_BUF_SIZE, local_buf) * V_CAL;
     h7_fft  = h7_rms;  /* 占位: FFT 幅度后续接入 */
 
     float32_t dc = 0.0f;
@@ -159,7 +172,28 @@ static void Process_Frame(void)
     for (int i = 0; i < ZC_N; i++)
         zc_buf[i] = ((float)local_buf[i] - dc) * 3.3f / 4096.0f;
     int zc = ZeroCross_Count(zc_buf, ZC_N);
-    h7_freq = (float)zc * 0.5f * FS / (float)ZC_N;
+    h7_freq = (float)zc * FS / (float)ZC_N;
+
+    /* === FFT 测频 + 测幅 === */
+    static float32_t fft_buf[FFT_N * 2];
+    for (int i = 0; i < FFT_N; i++)
+    {
+        fft_buf[2 * i]     = (float)local_buf[i] - dc;
+        fft_buf[2 * i + 1] = 0.0f;
+    }
+    arm_cfft_f32(&arm_cfft_sR_f32_len1024, fft_buf, 0, 1);
+    float32_t max_mag = 0.0f;
+    uint32_t  max_idx = 0;
+    for (int i = 1; i < FFT_N / 2; i++)
+    {
+        float32_t sq = fft_buf[2*i]*fft_buf[2*i] + fft_buf[2*i+1]*fft_buf[2*i+1];
+        float32_t mag;
+        arm_sqrt_f32(sq, &mag);
+        if (mag > max_mag) { max_mag = mag; max_idx = i; }
+    }
+    h7_freq_fft = (float)max_idx * FS / (float)FFT_N;
+    /* 单边谱峰值幅度 → 电压 (假设 VREF=3.3V) */
+    h7_fft = max_mag * 2.0f / (float)FFT_N * 3.3f / 4096.0f * V_CAL;
     h7_frame++;
 }
 
@@ -206,14 +240,20 @@ static void Show_Page1(void)
     lcd_clear(WHITE);
     lcd_show_string(10, 10, 220, 16, 16, "P1: AD9226", BLACK);
     lcd_draw_line(10, 28, 230, 28, BLACK);
-    lcd_show_string(20, 45,  80, 16, 16, "RMS:", BLACK);
-    Show_Float(80, 45, h7_rms, 16, BLACK);
-    lcd_show_string(150, 45, 40, 16, 16, "V", BLACK);
-    lcd_show_string(20, 75,  80, 16, 16, "Freq:", BLACK);
-    lcd_show_num(80, 75, (uint16_t)h7_freq, 6, 16, BLACK);
-    lcd_show_string(130, 75, 40, 16, 16, "Hz", BLACK);
-    lcd_show_string(20, 105, 80, 16, 16, "Frm:", BLACK);
-    lcd_show_num(80, 105, h7_frame, 7, 16, BLACK);
+    lcd_show_string(20, 42,  80, 16, 16, "RMS:", BLACK);
+    Show_Float(80, 42, h7_rms, 16, BLACK);
+    lcd_show_string(150, 42, 40, 16, 16, "V", BLACK);
+    lcd_show_string(20, 70,  80, 16, 16, "FFT_amp:", BLACK);
+    Show_Float(90, 70, h7_fft, 16, BLACK);
+    lcd_show_string(160, 70, 40, 16, 16, "V", BLACK);
+    lcd_show_string(20, 98,  80, 16, 16, "Freq:", BLACK);
+    lcd_show_num(80, 98, (uint16_t)h7_freq, 6, 16, BLACK);
+    lcd_show_string(130, 98, 40, 16, 16, "Hz", BLACK);
+    lcd_show_string(20, 126, 80, 16, 16, "FFT:", BLACK);
+    lcd_show_num(80, 126, (uint16_t)h7_freq_fft, 6, 16, BLACK);
+    lcd_show_string(130, 126, 40, 16, 16, "Hz", BLACK);
+    lcd_show_string(20, 154, 80, 16, 16, "Frm:", BLACK);
+    lcd_show_num(80, 154, h7_frame, 7, 16, BLACK);
     lcd_show_string(10, 270, 220, 16, 16, "KEY0 -> P2", BLACK);
 }
 
@@ -222,7 +262,7 @@ static void Show_Page2(void)
     lcd_clear(WHITE);
     lcd_show_string(10, 10, 220, 16, 16, "P2: Status", BLACK);
     lcd_draw_line(10, 28, 230, 28, BLACK);
-    lcd_show_string(10, 40, 160, 16, 16, "ADC @200kHz", BLACK);
+    lcd_show_string(10, 40, 160, 16, 16, "ADC @1MHz", BLACK);
     lcd_show_string(10, 65, 160, 16, 16, "Data PC0-PC11", BLACK);
     lcd_show_string(10, 90, 160, 16, 16, "CLK PB6=TIM4CH1", BLACK);
     lcd_show_string(10, 270, 220, 16, 16, "KEY0 -> P3", BLACK);

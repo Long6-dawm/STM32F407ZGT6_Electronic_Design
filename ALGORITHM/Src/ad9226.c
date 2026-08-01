@@ -45,19 +45,19 @@ void AD9226_Init(void)
     htim4.Instance               = TIM4;
     htim4.Init.Prescaler         = 0;
     htim4.Init.CounterMode       = TIM_COUNTERMODE_UP;
-    /* F407 TIM4 clk = 84MHz. Period 419 -> 200kHz sample rate. */
-    htim4.Init.Period            = 419;
+    /* F407 TIM4 clk = 84MHz. Period 167 -> 500kHz sample rate. */
+    htim4.Init.Period            = 167;
     htim4.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
     htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
     HAL_TIM_PWM_Init(&htim4);
 
     TIM_OC_InitTypeDef sConfigOC = {0};
     sConfigOC.OCMode     = TIM_OCMODE_PWM1;
-    sConfigOC.Pulse      = 210;   /* ~50% duty */
+    sConfigOC.Pulse      = 84;    /* ~50% duty */
     sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
     sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
     HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1);
-    __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 210);
+    __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 84);
 
     HAL_NVIC_SetPriority(TIM4_IRQn, 2, 0);
     HAL_NVIC_EnableIRQ(TIM4_IRQn);
@@ -76,6 +76,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     uint16_t *pbuf = active_buf ? adc_buf1 : adc_buf0;
     /* read low 12 bits of GPIOC as 12-bit parallel sample */
     raw = (uint16_t)(GPIOC->IDR & 0x0FFF);
+    /* AD9226 data lines are wired in reversed order, same as H7 reference */
+    raw = (uint16_t)(__RBIT(raw) >> 20);
     pbuf[adc_idx++] = raw;
     if (adc_idx >= AD9226_BUF_SIZE) {
         adc_idx    = 0;

@@ -118,10 +118,22 @@ void UsageFault_Handler(void)
 /* USER CODE BEGIN 1 */
 
 extern TIM_HandleTypeDef htim4;
+extern UART_HandleTypeDef huart2;
+extern DMA_HandleTypeDef hdma_usart2_tx;
 
 void TIM4_IRQHandler(void)
 {
     HAL_TIM_IRQHandler(&htim4);
+}
+
+void DMA1_Stream6_IRQHandler(void)
+{
+    HAL_DMA_IRQHandler(&hdma_usart2_tx);
+}
+
+void USART2_IRQHandler(void)
+{
+    HAL_UART_IRQHandler(&huart2);
 }
 
 /* USER CODE END 1 */
