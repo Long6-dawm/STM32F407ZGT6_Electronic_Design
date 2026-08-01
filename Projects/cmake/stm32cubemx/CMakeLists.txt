@@ -4,6 +4,7 @@ enable_language(C ASM)
 set(MX_Defines_Syms
     USE_HAL_DRIVER
     STM32F407xx
+    ARM_MATH_CM4
     __FPU_PRESENT=1
     $<$<CONFIG:Debug>:DEBUG>
 )
@@ -14,7 +15,9 @@ set(MX_Include_Dirs
     ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy
     ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/Device/ST/STM32F4xx/Include
     ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/Include
+    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Include
     ${CMAKE_SOURCE_DIR}/../Drivers
+    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Inc
 )
 
 set(MX_Application_Src
@@ -49,10 +52,17 @@ set(STM32_Drivers_Src
     ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.c
     ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c
     ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.c
+    ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.c
+    ${CMAKE_SOURCE_DIR}/../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c
     ${CMAKE_SOURCE_DIR}/../Drivers/BSP/LCD/lcd.c
     ${CMAKE_SOURCE_DIR}/../Drivers/BSP/LED/led.c
     ${CMAKE_SOURCE_DIR}/../Drivers/SYSTEM/delay/delay.c
     ${CMAKE_SOURCE_DIR}/../Drivers/SYSTEM/sys/sys.c
+    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/ad9226.c
+    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/zero_cross.c
+    ${CMAKE_SOURCE_DIR}/../ALGORITHM/Src/rms_amplitude.c
+    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/FastMathFunctions/arm_cos_f32.c
+    ${CMAKE_SOURCE_DIR}/../Drivers/CMSIS/DSP/Source/FastMathFunctions/arm_sin_f32.c
 )
 
 set(MX_LINK_DIRS)

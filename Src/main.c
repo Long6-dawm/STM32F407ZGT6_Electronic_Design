@@ -2,7 +2,7 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : F407 I2C2 Master - read from H743 slave
+  * @brief          : F407 AD9226 external 12-bit parallel ADC capture
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -14,6 +14,10 @@
 #include "./SYSTEM/delay/delay.h"
 #include "./BSP/LED/led.h"
 #include "./BSP/LCD/lcd.h"
+#include "ad9226.h"
+#include "rms_amplitude.h"
+#include "zero_cross.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* USER CODE BEGIN PD */
@@ -22,30 +26,20 @@
 #define KEY0_PIN      GPIO_PIN_4
 #define KEY_UP_PORT   GPIOA
 #define KEY_UP_PIN    GPIO_PIN_0
-#define I2C_ADDR      0x64     /* 0x32 << 1 */
-
-typedef struct __attribute__((packed)) {
-    uint16_t magic;
-    uint8_t  version;
-    uint8_t  byte_len;
-    uint32_t sequence;
-    uint32_t frequency_mhz;
-    uint32_t vpp_uv;
-    uint32_t vrms_uv;
-    uint32_t sample_rate_hz;
-    uint16_t range_mv;
-    uint16_t status_flags;
-    uint32_t checksum;
-} I2C_Frame;
+#define FS            200000.0f    /* TIM3 200kHz sample rate */
+#define ZC_N          1024
 /* USER CODE END PD */
 
 /* USER CODE BEGIN PV */
-volatile I2C_Frame i2c_frame;
-volatile uint8_t i2c_ready;
-uint32_t last_seq;
-float h7_rms, h7_fft, h7_freq;
-volatile uint32_t h7_ok, h7_err;
-I2C_HandleTypeDef hi2c2;
+uint16_t adc_buf0[AD9226_BUF_SIZE];
+uint16_t adc_buf1[AD9226_BUF_SIZE];
+volatile uint8_t  adc_done;
+volatile uint16_t adc_idx;
+volatile uint8_t  active_buf;
+
+static uint16_t local_buf[AD9226_BUF_SIZE];
+static float h7_rms, h7_fft, h7_freq;
+static uint32_t h7_frame;
 /* USER CODE END PV */
 
 void SystemClock_Config(void);
@@ -59,8 +53,6 @@ static void KEY_Init(void);
 static uint8_t KEY_Scan(void);
 static void KEY_UP_Init(void);
 static uint8_t KEY_UP_Scan(void);
-static void I2C2_Init(void);
-static uint8_t I2C_Read_Frame(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -77,54 +69,23 @@ static void Show_Float(uint16_t x, uint16_t y, float val, uint8_t size, uint16_t
     lcd_show_xnum(x + size + size / 2, y, dp, 2, size, 0x80, color);
 }
 
-static void I2C2_Init(void)
+static void Process_Frame(void)
 {
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-    __HAL_RCC_I2C2_CLK_ENABLE();
+    uint16_t *src = active_buf ? adc_buf0 : adc_buf1;
+    memcpy(local_buf, src, AD9226_BUF_SIZE * sizeof(uint16_t));
 
-    GPIO_InitTypeDef gpio = {0};
-    gpio.Pin       = GPIO_PIN_10 | GPIO_PIN_11;
-    gpio.Mode      = GPIO_MODE_AF_OD;
-    gpio.Pull      = GPIO_PULLUP;
-    gpio.Speed     = GPIO_SPEED_FREQ_HIGH;
-    gpio.Alternate = GPIO_AF4_I2C2;
-    HAL_GPIO_Init(GPIOB, &gpio);
+    h7_rms  = Measuring_Sine_Amplitude(AD9226_BUF_SIZE, local_buf);
+    h7_fft  = h7_rms;  /* 占位: FFT 幅度后续接入 */
 
-    hi2c2.Instance             = I2C2;
-    hi2c2.Init.ClockSpeed      = 100000;
-    hi2c2.Init.DutyCycle       = I2C_DUTYCYCLE_2;
-    hi2c2.Init.OwnAddress1     = 0;
-    hi2c2.Init.AddressingMode  = I2C_ADDRESSINGMODE_7BIT;
-    hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-    hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-    hi2c2.Init.NoStretchMode   = I2C_NOSTRETCH_DISABLE;
-    HAL_I2C_Init(&hi2c2);
-}
-
-static uint8_t I2C_Read_Frame(void)
-{
-    I2C_Frame tmp;
-    if (HAL_I2C_Master_Receive(&hi2c2, I2C_ADDR, (uint8_t *)&tmp, sizeof(tmp), 50) != HAL_OK)
-        return 0;
-
-    if (tmp.magic != 0xC25A || tmp.version != 1 || tmp.byte_len != sizeof(tmp))
-        return 0;
-
-    uint32_t sum = 0;
-    uint8_t *p = (uint8_t *)&tmp;
-    for (int i = 0; i < 28; i++) sum += p[i];
-    if (sum != tmp.checksum)
-        return 0;
-
-    if (tmp.sequence == last_seq)
-        return 1;  /* 重复帧, 不算错 */
-    last_seq = tmp.sequence;
-
-    h7_rms   = tmp.vrms_uv / 1000000.0f;
-    h7_fft   = tmp.vpp_uv  / 1000000.0f;
-    h7_freq  = tmp.frequency_mhz / 1000.0f;
-    h7_ok++;
-    return 1;
+    float32_t dc = 0.0f;
+    for (int i = 0; i < ZC_N; i++) dc += (float)local_buf[i];
+    dc /= ZC_N;
+    static float32_t zc_buf[ZC_N];
+    for (int i = 0; i < ZC_N; i++)
+        zc_buf[i] = ((float)local_buf[i] - dc) * 3.3f / 4096.0f;
+    int zc = ZeroCross_Count(zc_buf, ZC_N);
+    h7_freq = (float)zc * 0.5f * FS / (float)ZC_N;
+    h7_frame++;
 }
 
 static void KEY_Init(void)
@@ -168,19 +129,16 @@ static uint8_t KEY_UP_Scan(void)
 static void Show_Page1(void)
 {
     lcd_clear(WHITE);
-    lcd_show_string(10, 10, 220, 16, 16, "P1: I2C Data", BLACK);
+    lcd_show_string(10, 10, 220, 16, 16, "P1: AD9226", BLACK);
     lcd_draw_line(10, 28, 230, 28, BLACK);
     lcd_show_string(20, 45,  80, 16, 16, "RMS:", BLACK);
     Show_Float(80, 45, h7_rms, 16, BLACK);
     lcd_show_string(150, 45, 40, 16, 16, "V", BLACK);
-    lcd_show_string(20, 75,  80, 16, 16, "FFT:", BLACK);
-    Show_Float(80, 75, h7_fft, 16, BLACK);
-    lcd_show_string(150, 75, 40, 16, 16, "V", BLACK);
-    lcd_show_string(20, 105, 80, 16, 16, "Freq:", BLACK);
-    lcd_show_num(80, 105, (uint16_t)h7_freq, 6, 16, BLACK);
-    lcd_show_string(130, 105, 40, 16, 16, "Hz", BLACK);
-    lcd_show_string(20, 135, 80, 16, 16, "Frm:", BLACK);
-    lcd_show_num(80, 135, last_seq, 7, 16, BLACK);
+    lcd_show_string(20, 75,  80, 16, 16, "Freq:", BLACK);
+    lcd_show_num(80, 75, (uint16_t)h7_freq, 6, 16, BLACK);
+    lcd_show_string(130, 75, 40, 16, 16, "Hz", BLACK);
+    lcd_show_string(20, 105, 80, 16, 16, "Frm:", BLACK);
+    lcd_show_num(80, 105, h7_frame, 7, 16, BLACK);
     lcd_show_string(10, 270, 220, 16, 16, "KEY0 -> P2", BLACK);
 }
 
@@ -189,27 +147,24 @@ static void Show_Page2(void)
     lcd_clear(WHITE);
     lcd_show_string(10, 10, 220, 16, 16, "P2: Status", BLACK);
     lcd_draw_line(10, 28, 230, 28, BLACK);
-    lcd_show_string(10, 40, 80, 16, 16, "OK:", BLACK);
-    lcd_show_num(60, 40, (uint32_t)h7_ok, 7, 16, BLACK);
-    lcd_show_string(10, 65, 80, 16, 16, "ERR:", BLACK);
-    lcd_show_num(60, 65, (uint32_t)h7_err, 7, 16, BLACK);
-    lcd_show_string(10, 95, 200, 16, 16, "I2C2 @100kHz 0x32", BLACK);
+    lcd_show_string(10, 40, 160, 16, 16, "ADC1 @200kHz", BLACK);
+    lcd_show_string(10, 65, 160, 16, 16, "Data PC0-PC11", BLACK);
+    lcd_show_string(10, 90, 160, 16, 16, "CLK PC6=TIM3CH1", BLACK);
     lcd_show_string(10, 270, 220, 16, 16, "KEY0 -> P3", BLACK);
 }
 
 static void Show_Page3(void)
 {
     lcd_clear(WHITE);
-    lcd_show_string(10, 10, 220, 16, 16, "P3: Frame Hex", BLACK);
+    lcd_show_string(10, 10, 220, 16, 16, "P3: Raw[0..7]", BLACK);
     lcd_draw_line(10, 28, 230, 28, BLACK);
-    uint8_t *p = (uint8_t *)&i2c_frame;
-    for (int i = 0; i < 8 && i < 31; i++) {
+    for (int i = 0; i < 8; i++) {
+        uint16_t b = local_buf[i];
         uint16_t x = 10 + (i % 4) * 55, y = 45 + (i / 4) * 25;
-        lcd_show_char(x, y, "0123456789ABCDEF"[p[i] >> 4], 16, 0, BLACK);
-        lcd_show_char(x + 10, y, "0123456789ABCDEF"[p[i] & 0x0F], 16, 0, BLACK);
+        lcd_show_num(x, y, b, 4, 16, BLACK);
     }
-    lcd_show_string(10, 100, 80, 16, 16, "seq:", BLACK);
-    lcd_show_num(50, 100, last_seq, 7, 16, BLACK);
+    lcd_show_string(10, 100, 160, 16, 16, "idx:", BLACK);
+    lcd_show_num(50, 100, adc_idx, 5, 16, BLACK);
     lcd_show_string(10, 270, 220, 16, 16, "KEY0 -> P1", BLACK);
 }
 
@@ -226,22 +181,29 @@ int main(void)
   lcd_init();
   KEY_Init();
   KEY_UP_Init();
-  I2C2_Init();
+
+  AD9226_Init();
+  AD9226_Start();
+
   lcd_clear(WHITE);
   uint8_t page = 1;
 
   while (1)
   {
+    if (adc_done)
+    {
+        adc_done = 0;
+        Process_Frame();
+    }
+
     if (page == 1) Show_Page1();
     else if (page == 2) Show_Page2();
     else Show_Page3();
 
-    I2C_Read_Frame();
-
     if (KEY_Scan()) page = page % MAX_PAGE + 1;
     if (KEY_UP_Scan()) { for (int i = 0; i < 3; i++) { LED1_TOGGLE(); delay_ms(100); } LED1(0); }
     LED0_TOGGLE();
-    delay_ms(200);
+    delay_ms(100);
     /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
   }
