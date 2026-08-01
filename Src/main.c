@@ -148,8 +148,8 @@ static void Show_Page2(void)
     lcd_show_string(10, 10, 220, 16, 16, "P2: Status", BLACK);
     lcd_draw_line(10, 28, 230, 28, BLACK);
     lcd_show_string(10, 40, 160, 16, 16, "ADC @200kHz", BLACK);
-    lcd_show_string(10, 65, 160, 16, 16, "Data PB0-PB11", BLACK);
-    lcd_show_string(10, 90, 160, 16, 16, "CLK PC6=TIM3CH1", BLACK);
+    lcd_show_string(10, 65, 160, 16, 16, "Data PC0-PC11", BLACK);
+    lcd_show_string(10, 90, 160, 16, 16, "CLK PB6=TIM4CH1", BLACK);
     lcd_show_string(10, 270, 220, 16, 16, "KEY0 -> P3", BLACK);
 }
 

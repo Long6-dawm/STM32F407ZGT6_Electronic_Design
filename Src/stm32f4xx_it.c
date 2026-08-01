@@ -117,4 +117,11 @@ void UsageFault_Handler(void)
 
 /* USER CODE BEGIN 1 */
 
+extern TIM_HandleTypeDef htim4;
+
+void TIM4_IRQHandler(void)
+{
+    HAL_TIM_IRQHandler(&htim4);
+}
+
 /* USER CODE END 1 */
