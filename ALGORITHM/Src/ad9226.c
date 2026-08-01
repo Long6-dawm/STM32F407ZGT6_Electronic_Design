@@ -2,11 +2,10 @@
  * @file ad9226.c
  * @brief AD9226 GPIO + TIM3 PWM driver (F407 port).
  *
- * Data lines : PC0-PC11  (12-bit parallel input)
+ * Data lines : PB0-PB11  (12-bit parallel input)
  * Sample clk : PC6 = TIM3_CH1  (PWM output drives AD9226 CLK)
  *
- * H743 reference used PC6=TIM3_CH1; F407 keeps the same TIM3_CH1 on PC6.
- * Data port differs: H743 used GPIOB, F407 uses GPIOC.
+ * Same pin scheme as the H743 reference (data PB0-PB11, clk PC6=TIM3_CH1).
  */
 #include "ad9226.h"
 #include "stm32f4xx_hal.h"
@@ -23,16 +22,16 @@ void AD9226_Init(void)
 {
     GPIO_InitTypeDef gpio = {0};
 
-    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
 
-    /* PC0-PC11: 12-bit parallel data input */
+    /* PB0-PB11: 12-bit parallel data input */
     gpio.Pin  = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 |
                 GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7 |
                 GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10| GPIO_PIN_11;
     gpio.Mode  = GPIO_MODE_INPUT;
     gpio.Pull  = GPIO_NOPULL;
     gpio.Speed = GPIO_SPEED_FREQ_HIGH;
-    HAL_GPIO_Init(GPIOC, &gpio);
+    HAL_GPIO_Init(GPIOB, &gpio);
 
     /* PC6 = TIM3_CH1 PWM (sample clock output) */
     __HAL_RCC_TIM3_CLK_ENABLE();
@@ -72,7 +71,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     if (htim->Instance != TIM3) return;
     uint16_t *pbuf = active_buf ? adc_buf1 : adc_buf0;
     /* read low 12 bits of GPIOC as 12-bit parallel sample */
-    raw = (uint16_t)(GPIOC->IDR & 0x0FFF);
+    raw = (uint16_t)(GPIOB->IDR & 0x0FFF);
     pbuf[adc_idx++] = raw;
     if (adc_idx >= AD9226_BUF_SIZE) {
         adc_idx    = 0;

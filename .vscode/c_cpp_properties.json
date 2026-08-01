@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "name": "STM32F407",
+            "includePath": [
+                "${workspaceFolder}/Inc",
+                "${workspaceFolder}/Drivers/STM32F4xx_HAL_Driver/Inc",
+                "${workspaceFolder}/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy",
+                "${workspaceFolder}/Drivers/CMSIS/Device/ST/STM32F4xx/Include",
+                "${workspaceFolder}/Drivers/CMSIS/Include",
+                "${workspaceFolder}/Drivers/CMSIS/DSP/Include",
+                "${workspaceFolder}/Drivers",
+                "${workspaceFolder}/ALGORITHM/Inc"
+            ],
+            "defines": [
+                "USE_HAL_DRIVER",
+                "STM32F407xx",
+                "ARM_MATH_CM4",
+                "__FPU_PRESENT=1"
+            ],
+            "compilerPath": "C:/ST/STM32CubeCLT_1.18.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-gcc-arm"
+        }
+    ],
+    "version": 4
+}
